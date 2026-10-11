@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+  <title id="title">MLOps architecture diagram</title>
+  <desc id="desc">Angular UI, FastAPI backend, SQLAlchemy persistence, queue worker, monitoring, and deployment controls.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1">
+      <stop offset="0%" stop-color="#eef4ff"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </linearGradient>
+    <style>
+      .box { fill: #ffffff; stroke: #94a3b8; stroke-width: 2; rx: 18; }
+      .title { font: bold 22px sans-serif; fill: #1e293b; }
+      .text { font: 16px sans-serif; fill: #334155; }
+      .small { font: 14px sans-serif; fill: #475569; }
+      .service { fill: #dbeafe; stroke: #60a5fa; stroke-width: 2; }
+      .db { fill: #dcfce7; stroke: #22c55e; stroke-width: 2; }
+      .worker { fill: #fef3c7; stroke: #f59e0b; stroke-width: 2; }
+      .monitor { fill: #fce7f3; stroke: #ec4899; stroke-width: 2; }
+      .guard { fill: #ede9fe; stroke: #8b5cf6; stroke-width: 2; }
+      .arrow { stroke: #475569; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="8" refX="8" refY="4" orient="auto">
+      <polygon points="0 0, 10 4, 0 8" fill="#475569" />
+    </marker>
+  </defs>
+  <rect width="1200" height="700" fill="url(#bg)"/>
+
+  <rect x="60" y="60" width="230" height="180" class="box service"/>
+  <text x="88" y="98" class="title">Angular UI</text>
+  <text x="88" y="138" class="text">Model inventory</text>
+  <text x="88" y="166" class="text">Deployment timeline</text>
+  <text x="88" y="194" class="text">Monitoring dashboard</text>
+
+  <rect x="400" y="70" width="340" height="250" class="box service"/>
+  <text x="430" y="108" class="title">FastAPI Backend</text>
+  <text x="430" y="150" class="text">/models</text>
+  <text x="430" y="178" class="text">/deployments</text>
+  <text x="430" y="206" class="text">/metrics</text>
+  <text x="430" y="234" class="text">Approval and lifecycle validation</text>
+  <text x="430" y="262" class="text">Retry, rollback, idempotency</text>
+
+  <rect x="820" y="90" width="260" height="150" class="box db"/>
+  <text x="850" y="128" class="title">Persistence</text>
+  <text x="850" y="170" class="text">SQLAlchemy models</text>
+  <text x="850" y="198" class="text">SQLite / PostgreSQL</text>
+
+  <rect x="760" y="315" width="240" height="150" class="box worker"/>
+  <text x="790" y="353" class="title">Async Worker</text>
+  <text x="790" y="395" class="text">Validation job</text>
+  <text x="790" y="423" class="text">Deployment queue</text>
+
+  <rect x="300" y="400" width="270" height="180" class="box monitor"/>
+  <text x="330" y="438" class="title">Monitoring</text>
+  <text x="330" y="480" class="text">Latency, drift, error rate</text>
+  <text x="330" y="508" class="text">Availability and quality</text>
+  <text x="330" y="536" class="text">Health and alerts</text>
+
+  <rect x="620" y="470" width="280" height="150" class="box guard"/>
+  <text x="650" y="508" class="title">Governance</text>
+  <text x="650" y="550" class="text">Approval gates</text>
+  <text x="650" y="578" class="text">Rollback safety</text>
+
+  <path d="M290 150 H400" class="arrow"/>
+  <path d="M740 155 H820" class="arrow"/>
+  <path d="M960 240 L960 315" class="arrow"/>
+  <path d="M700 320 L760 390" class="arrow"/>
+  <path d="M570 330 L520 400" class="arrow"/>
+  <path d="M620 540 L900 540" class="arrow"/>
+</svg>

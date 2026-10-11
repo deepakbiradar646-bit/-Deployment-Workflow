@@ -1,0 +1,229 @@
+<div class="app-shell">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">MLOps control plane</p>
+      <h1>Model governance and deployment overview</h1>
+    </div>
+    <span class="status-pill" [class.online]="!error()">{{ error() ? 'API unavailable' : 'API online' }}</span>
+  </header>
+
+  <div class="notice-banner" *ngIf="notice()">{{ notice() }}</div>
+  <div class="error-banner" *ngIf="error()">{{ error() }}</div>
+
+  <section class="overview-grid" *ngIf="!loading()">
+    <article class="summary-card">
+      <span class="label">Registered models</span>
+      <strong>{{ models().length }}</strong>
+    </article>
+    <article class="summary-card">
+      <span class="label">Deployments</span>
+      <strong>{{ deployments().length }}</strong>
+    </article>
+    <article class="summary-card">
+      <span class="label">Quality score</span>
+      <strong>{{ metrics()?.quality_score ?? 0 | number: '1.2-2' }}</strong>
+    </article>
+    <article class="summary-card">
+      <span class="label">Availability</span>
+      <strong>{{ metrics()?.availability ?? 0 | number: '1.2-2' }}</strong>
+    </article>
+  </section>
+
+  <section class="panel workflow-panel" *ngIf="!loading()">
+    <div class="panel-header"><h2>Register model</h2></div>
+    <form class="form-grid" (ngSubmit)="createModel()">
+      <label>Model name<input name="modelName" required [(ngModel)]="modelForm.name"></label>
+      <label>Description<input name="modelDescription" [(ngModel)]="modelForm.description"></label>
+      <label>Framework<input name="modelFramework" required [(ngModel)]="modelForm.framework"></label>
+      <label>Algorithm<input name="modelAlgorithm" required [(ngModel)]="modelForm.algorithm"></label>
+      <label>Owner<input name="modelOwner" required [(ngModel)]="modelForm.owner"></label>
+      <label>Tags<input name="modelTags" [(ngModel)]="modelForm.tags"></label>
+      <button type="submit" class="action-button">Register model</button>
+    </form>
+  </section>
+
+  <div class="workspace" *ngIf="!loading()">
+    <aside class="panel models-panel">
+      <div class="panel-header"><h2>Model inventory</h2></div>
+      <label class="filter-label">Search models
+        <input name="modelSearch" type="search" placeholder="Name, framework, owner, tags" [(ngModel)]="modelSearch">
+      </label>
+      <div class="model-list">
+        <p *ngIf="models().length === 0" class="empty-state">No models are registered yet.</p>
+        <p *ngIf="models().length > 0 && filteredModels().length === 0" class="empty-state">No models match this search.</p>
+        <button
+          type="button"
+          class="model-item"
+          *ngFor="let model of filteredModels(); trackBy: trackById"
+          [class.active]="selectedModel()?.id === model.id"
+          (click)="selectModel(model)"
+        >
+          <span class="model-name">{{ model.name }}</span>
+          <span class="model-meta">{{ model.framework }} · {{ model.algorithm }}</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="panel details-panel" *ngIf="selectedModel() as model">
+      <div class="detail-header">
+        <div><p class="eyebrow">Selected model</p><h2>{{ model.name }}</h2></div>
+        <span class="tag">{{ model.tags || 'no tags' }}</span>
+      </div>
+      <div class="meta-grid">
+        <div><span class="caption">Owner</span><strong>{{ model.owner }}</strong></div>
+        <div><span class="caption">Framework</span><strong>{{ model.framework }}</strong></div>
+        <div><span class="caption">Algorithm</span><strong>{{ model.algorithm }}</strong></div>
+        <div><span class="caption">Description</span><strong>{{ model.description || 'No description provided.' }}</strong></div>
+      </div>
+
+      <div class="panel-header"><h3>Model versions and lifecycle</h3></div>
+      <p *ngIf="!model.versions?.length" class="empty-state">No versions registered for this model.</p>
+      <div class="version-list" *ngIf="model.versions?.length">
+        <article class="version-card" *ngFor="let version of model.versions">
+          <div>
+            <strong>Version {{ version.version }}</strong>
+            <span class="model-meta"> {{ version.lifecycle_stage }} · approval {{ version.approval_status }}</span>
+            <div class="model-meta">Quality {{ version.quality_score | number: '1.2-2' }} · Drift {{ version.drift_score | number: '1.2-2' }}</div>
+          </div>
+          <div class="button-row">
+            <button
+              type="button"
+              class="secondary-button"
+              *ngIf="canAdvanceVersion(version)"
+              (click)="advanceVersion(version)"
+            >{{ version.lifecycle_stage === 'DRAFT' ? 'Validate' : version.lifecycle_stage === 'VALIDATED' ? 'Approve' : 'Promote to staging' }}</button>
+            <button
+              type="button"
+              class="secondary-button"
+              *ngIf="version.lifecycle_stage !== 'ARCHIVED' && version.lifecycle_stage !== 'PRODUCTION'"
+              (click)="archiveVersion(version)"
+            >Archive</button>
+            <button type="button" class="secondary-button" (click)="viewVersionEvents(version)">Audit history</button>
+          </div>
+        </article>
+      </div>
+      <div class="event-history" *ngIf="selectedVersionEventId() as versionId">
+        <div class="panel-header section-spaced"><h4>Version {{ versionId }} audit history</h4></div>
+        <p *ngIf="selectedVersionEvents().length === 0" class="empty-state">No lifecycle events recorded.</p>
+        <ol>
+          <li *ngFor="let event of selectedVersionEvents()">
+            <strong>{{ event.event_type }}</strong> — {{ event.from_stage }} → {{ event.to_stage }} by {{ event.actor }}:
+            {{ event.reason }} <time>{{ event.created_at | date: 'medium' }}</time>
+          </li>
+        </ol>
+      </div>
+
+      <div class="panel-header section-spaced"><h3>Register version</h3></div>
+      <form class="form-grid" (ngSubmit)="createVersion()">
+        <label>Version<input name="version" required [(ngModel)]="versionForm.version"></label>
+        <label>Artifact URI<input name="artifactUri" required [(ngModel)]="versionForm.artifact_uri"></label>
+        <label>Training data reference<input name="trainingRef" required [(ngModel)]="versionForm.training_data_ref"></label>
+        <label>Quality score<input name="quality" type="number" step="0.01" [(ngModel)]="versionForm.quality_score"></label>
+        <label>Drift score<input name="drift" type="number" step="0.01" [(ngModel)]="versionForm.drift_score"></label>
+        <label>Latency (ms)<input name="latency" type="number" [(ngModel)]="versionForm.latency_ms"></label>
+        <label>Throughput (rps)<input name="throughput" type="number" [(ngModel)]="versionForm.throughput_rps"></label>
+        <label>Error rate<input name="errorRate" type="number" step="0.01" [(ngModel)]="versionForm.error_rate"></label>
+        <label>Availability<input name="availability" type="number" step="0.01" [(ngModel)]="versionForm.availability"></label>
+        <button type="submit" class="action-button">Register version as DRAFT</button>
+      </form>
+
+      <div class="panel-header section-spaced"><h3>Monitoring</h3></div>
+      <div class="stats-grid" *ngIf="metrics() as metric">
+        <div class="metric-card"><span>Latency</span><strong>{{ metric.latency_ms }} ms</strong></div>
+        <div class="metric-card"><span>Throughput</span><strong>{{ metric.throughput_rps }} rps</strong></div>
+        <div class="metric-card"><span>Drift</span><strong>{{ metric.drift_score | number: '1.2-2' }}</strong></div>
+        <div class="metric-card"><span>Error rate</span><strong>{{ metric.error_rate | number: '1.2-2' }}</strong></div>
+        <div class="metric-card"><span>Quality</span><strong>{{ metric.quality_score | number: '1.2-2' }}</strong></div>
+        <div class="metric-card"><span>Availability</span><strong>{{ metric.availability | percent: '1.0-2' }}</strong></div>
+        <div class="metric-card"><span>Monitoring status</span><strong>{{ metric.monitoring_status }}</strong></div>
+        <div class="metric-card"><span>Last successful inference</span><strong>{{ metric.last_successful_inference ? (metric.last_successful_inference | date: 'medium') : 'Not reported' }}</strong></div>
+      </div>
+
+      <div class="panel-header section-spaced"><h3>Compare versions</h3></div>
+      <div class="comparison-controls" *ngIf="(model.versions?.length ?? 0) > 1">
+        <label>First version
+          <select name="firstVersion" [(ngModel)]="firstCompareId">
+            <option [ngValue]="null">Select version</option>
+            <option *ngFor="let version of (model.versions ?? [])" [ngValue]="version.id">{{ version.version }}</option>
+          </select>
+        </label>
+        <label>Second version
+          <select name="secondVersion" [(ngModel)]="secondCompareId">
+            <option [ngValue]="null">Select version</option>
+            <option *ngFor="let version of (model.versions ?? [])" [ngValue]="version.id">{{ version.version }}</option>
+          </select>
+        </label>
+        <button type="button" class="action-button" [disabled]="!firstCompareId || !secondCompareId || firstCompareId === secondCompareId" (click)="compareSelectedVersions()">Compare</button>
+      </div>
+      <p *ngIf="(model.versions?.length ?? 0) < 2" class="empty-state">Register at least two versions to compare.</p>
+      <div class="comparison-grid" *ngIf="comparison() as result">
+        <article class="metric-card"><h4>{{ result.first.version }}</h4><p>Quality: {{ result.first.quality_score }}</p><p>Drift: {{ result.first.drift_score }}</p><p>Latency: {{ result.first.latency_ms }} ms</p><p>Throughput: {{ result.first.throughput_rps }} rps</p></article>
+        <article class="metric-card"><h4>{{ result.second.version }}</h4><p>Quality: {{ result.second.quality_score }}</p><p>Drift: {{ result.second.drift_score }}</p><p>Latency: {{ result.second.latency_ms }} ms</p><p>Throughput: {{ result.second.throughput_rps }} rps</p></article>
+      </div>
+
+      <div class="panel-header section-spaced"><h3>Request deployment</h3></div>
+      <form class="form-grid" (ngSubmit)="createDeployment()">
+        <label>Model version
+          <select name="deploymentVersion" required [(ngModel)]="deploymentVersionId">
+            <option *ngFor="let version of model.versions" [ngValue]="version.id">{{ version.version }} — {{ version.lifecycle_stage }}</option>
+          </select>
+        </label>
+        <label>Environment
+          <select name="environment" [(ngModel)]="deploymentEnvironment">
+            <option value="DEV">DEV</option><option value="STAGING">STAGING</option><option value="PRODUCTION">PRODUCTION</option>
+          </select>
+        </label>
+        <label>Reason<input name="deploymentReason" [(ngModel)]="deploymentReason"></label>
+        <label class="checkbox-label"><input name="simulateFailure" type="checkbox" [(ngModel)]="simulateFailure"> Simulate failure for retry testing</label>
+        <button type="submit" class="action-button" [disabled]="!deploymentVersionId">Request deployment</button>
+      </form>
+    </main>
+  </div>
+
+  <section class="panel deployment-panel" *ngIf="!loading()">
+    <div class="panel-header"><h2>Deployment timeline</h2></div>
+    <p *ngIf="deployments().length === 0" class="empty-state">No deployments have been requested yet.</p>
+    <div class="deployment-filters" *ngIf="deployments().length > 0">
+      <label class="filter-label">Search deployments
+        <input name="deploymentSearch" type="search" placeholder="Model, status, reason" [(ngModel)]="deploymentSearch">
+      </label>
+      <label class="filter-label">Environment
+        <select name="deploymentEnvironmentFilter" [(ngModel)]="deploymentEnvironmentFilter">
+          <option value="ALL">All environments</option><option value="DEV">DEV</option><option value="STAGING">STAGING</option><option value="PRODUCTION">PRODUCTION</option>
+        </select>
+      </label>
+    </div>
+    <p *ngIf="deployments().length > 0 && filteredDeployments().length === 0" class="empty-state">No deployments match these filters.</p>
+    <div class="table-scroll" *ngIf="filteredDeployments().length > 0">
+      <table>
+        <thead><tr><th>Model</th><th>Version ID</th><th>Environment</th><th>Status</th><th>Retries</th><th>Reason</th><th>Updated</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr *ngFor="let deployment of filteredDeployments(); trackBy: trackById">
+            <td>{{ modelName(deployment.model_id) }}</td>
+            <td>{{ deployment.model_version_id }}</td>
+            <td>{{ deployment.environment }}</td>
+            <td><span class="status-badge" [ngClass]="deployment.status.toLowerCase()">{{ deployment.status }}</span></td>
+            <td>{{ deployment.retry_count }}</td>
+            <td>{{ deployment.status_reason || deployment.request_reason || 'N/A' }}</td>
+            <td>{{ deployment.updated_at | date: 'medium' }}</td>
+            <td class="button-row">
+              <button type="button" class="secondary-button" (click)="viewDeploymentEvents(deployment)">History</button>
+              <button type="button" class="secondary-button" *ngIf="deployment.status === 'FAILED'" (click)="retryDeployment(deployment)">Retry</button>
+              <button type="button" class="secondary-button" *ngIf="deployment.environment === 'PRODUCTION' && deployment.status === 'SUCCEEDED'" (click)="rollbackDeployment(deployment)">Rollback</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="event-history" *ngIf="selectedDeploymentId() as deploymentId">
+      <div class="panel-header section-spaced"><h3>Deployment {{ deploymentId }} event history</h3></div>
+      <p *ngIf="selectedDeploymentEvents().length === 0" class="empty-state">No events recorded.</p>
+      <ol>
+        <li *ngFor="let event of selectedDeploymentEvents()">
+          <strong>{{ event.event_type }}</strong> — {{ event.from_status || 'START' }} → {{ event.to_status }}:
+          {{ event.reason }} <time>{{ event.created_at | date: 'medium' }}</time>
+        </li>
+      </ol>
+    </div>
+  </section>
+</div>
