@@ -4,7 +4,7 @@
       <p class="eyebrow">MLOps control plane</p>
       <h1>Model governance and deployment overview</h1>
     </div>
-    <span class="status-pill" [class.online]="!error()">{{ error() ? 'API unavailable' : 'API online' }}</span>
+    <span class="status-pill" [class.online]="apiAvailable()">{{ apiAvailable() ? 'API online' : 'API unavailable' }}</span>
   </header>
 
   <div class="notice-banner" *ngIf="notice()">{{ notice() }}</div>

@@ -30,6 +30,7 @@ export class App implements OnInit {
   selectedModel = signal<ModelRecord | null>(null);
   metrics = signal<Metrics | null>(null);
   loading = signal(true);
+  apiAvailable = signal(false);
   error = signal<string | null>(null);
   notice = signal<string | null>(null);
   comparison = signal<ModelVersionComparison | null>(null);
@@ -75,10 +76,20 @@ export class App implements OnInit {
     this.secondCompareId = null;
     this.deploymentVersionId = model.versions?.[0]?.id ?? null;
     this.api.getMetrics(model.id).subscribe({
-      next: (metric) => this.metrics.set(metric),
-      error: () => {
+      next: (metric) => {
+        this.metrics.set(metric);
+        this.apiAvailable.set(true);
+        this.error.set(null);
+      },
+      error: (error: { status?: number; error?: { detail?: string } }) => {
         this.metrics.set(null);
-        this.setError('Model metrics could not be loaded from the API.');
+        if (error.status === 0) {
+          this.apiAvailable.set(false);
+          this.setError('Could not connect to the API while loading model metrics.');
+          return;
+        }
+        this.apiAvailable.set(true);
+        this.setError(error.error?.detail ?? 'Metrics are unavailable for the selected model.');
       },
     });
   }
@@ -236,6 +247,7 @@ export class App implements OnInit {
     this.api.getModels().subscribe({
       next: (data) => {
         this.models.set(data);
+        this.apiAvailable.set(true);
         this.error.set(null);
         if (data.length > 0) {
           this.selectModel(data.find((model) => model.id === selectedModelId) ?? data[0]);
@@ -246,6 +258,7 @@ export class App implements OnInit {
         this.loading.set(false);
       },
       error: () => {
+        this.apiAvailable.set(false);
         this.setError('Could not load model inventory from the API.');
         this.loading.set(false);
       },
@@ -255,6 +268,7 @@ export class App implements OnInit {
   private loadDeployments(): void {
     this.api.getDeployments().subscribe({
       next: (data) => {
+        this.apiAvailable.set(true);
         const previousStatuses = new Map(this.deployments().map((deployment) => [deployment.id, deployment.status]));
         this.deployments.set(data);
         const selectedModelId = this.selectedModel()?.id;
@@ -269,7 +283,10 @@ export class App implements OnInit {
           this.loadModels(selectedModelId);
         }
       },
-      error: () => this.setError('Deployment history could not be loaded from the API.'),
+      error: () => {
+        this.apiAvailable.set(false);
+        this.setError('Deployment history could not be loaded from the API.');
+      },
     });
   }
 

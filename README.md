@@ -248,7 +248,7 @@ The main dashboard implementation is in `frontend/src/app/app.ts`, `app.html`, `
 
 | Frontend area | Objective | Current implementation |
 |---|---|---|
-| API connectivity indicator | Tell the operator whether live backend data is available | Shows `API online` or `API unavailable` |
+| API connectivity indicator | Tell the operator whether live backend data is available | Tracks successful API communication separately from model-specific errors |
 | Overview cards | Give a quick portfolio/deployment/health summary | Model count, deployment count, selected-model quality and availability |
 | Model inventory | Find and inspect a model | Loads API models, supports text search, and selects a model |
 | Model registration | Add registry entries | Form calls `POST /models` |
